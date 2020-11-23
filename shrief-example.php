@@ -195,6 +195,11 @@
         });
 
 
+        add_action('wp_ajax_shshd',function(){
+            wp_die();
+        });
+
+
     }
 
     public function shrief_note_minder_call_back(){
