@@ -14,13 +14,59 @@
     function __construct(){
 
         add_action('init',[$this, 'menu_page_init']);
+        add_action('init',array($this, 'change_background'));
         add_action('admin_enqueue_scripts',[$this, 'shrief_load_admin_script']);
         add_action('admin_init',[$this, 'handle_sortable']);
         add_action('admin_init',[$this, 'handle_register_settings']);
         add_action('admin_init',[$this,'handle_ajax']);
         // add_action('admin_init',[$this,'get_posts']);
         // add_action('admin_init',[$this,'get_number_of_posts']);
+        
+        add_action( 'customize_register', [$this,'shrief_customize'] );
     }
+
+    public function shrief_customize($wp_customize){
+
+        $wp_customize->add_section('shrief_color_picker',array(
+            'title'=>'Color Picker'
+        ));
+        $wp_customize->add_setting('shrief_cp_settings',array(
+            'default'=> '#ffff',
+            'transport'=>'postMessage'
+        ));
+        $wp_customize->add_control('shrief_cp_settings',array(
+            'label'=>'Color Picker',
+            'section'=>'shrief_color_picker',
+            'type'=>'color'
+        ));
+
+        // $wp_customize->selective_refresh->add_partial('shrief_cp_settings', array(
+        //     'selector'=>'#site-header',
+        //     'container_inclusive'=>false,
+        //     'render_callback'=> function(){
+        //         echo '<p>abcdef</p>';
+        //     },
+        //     'fallback_refresh'=>true
+        // ));
+        add_action( 'customize_preview_init', array($this,'mytheme_customizer_preview_scripts') );
+        
+    }
+    function mytheme_customizer_preview_scripts() {
+        wp_enqueue_script( 'mytheme-customizer-preview', trailingslashit( plugin_dir_url(__FILE__) ) . 'assets/js/shrief-test-app.js', array( 'customize-preview', 'jquery' ) );
+     }
+    public function change_background(){
+        add_action('wp_footer',function(){
+            $bgcolor = get_theme_mod('shrief_cp_settings');
+            echo '<style>
+                #site-header{
+                    background-color: ' . $bgcolor .
+                ' !important ;}
+            </style>';
+        });
+    }
+
+
+
     public function test(){
         var_dump(get_post_meta(28,'_tax_status')) ;
     }
@@ -63,9 +109,18 @@
     }
 
     public function shrief_load_admin_script(){
-        wp_enqueue_script('shrief-jq-script','https://code.jquery.com/jquery-1.12.4.js',['jquery']);
+
         wp_enqueue_style('shrief-css-script',plugin_dir_url(__FILE__) . 'assets/css/shrief-example-style.css',[]);
         wp_enqueue_script('shrief-js-script',plugin_dir_url(__FILE__) . 'assets/js/shrief-app.js',['jquery']);
+        wp_localize_script( 'shrief-js-script', 'thienobj',
+        array( 
+            'ajaxurl' => admin_url( 'admin-ajax.php' ),
+            'data_var_1' => 'value 1',
+            'data_var_2' => 'value 2',
+            'nonce' => wp_create_nonce('thien')
+        )
+    );
+        
     }
 
     public function handle_register_settings(){
@@ -76,8 +131,8 @@
         add_action('admin_head',function(){
             ?>
             <script>
-                $( function() {
-                    $( "#sortable" ).sortable();
+                jQuery( function() {
+                    jQuery( "#sortable" ).sortable();
                 } );
             </script>
             <?php
@@ -88,6 +143,7 @@
     public function handle_ajax(){
         add_action('wp_ajax_shrief_insert_post',function(){
             global $wpdb;
+            check_ajax_referer('thien','nonce',true);
             $post_id =  wp_insert_post([
                 'post_title' => $_POST['note_title'],
                 'post_content' => $_POST['note_content'],
